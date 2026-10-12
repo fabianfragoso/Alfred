@@ -53,6 +53,11 @@ input[type=text],input[type=password]{flex:1;min-width:0;background:var(--panel)
 .settings .row{display:flex;gap:8px;flex-wrap:wrap}
 .settings label{font-size:13px;display:flex;gap:8px;align-items:center}
 .start{align-self:center;margin-block:6px}
+.vgrid{display:grid;grid-template-columns:auto 1fr auto;gap:8px 10px;align-items:center;font-size:13px}
+.vgrid select{min-width:0;background:var(--ground);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:10px;font:14px var(--body)}
+.vgrid input[type=range]{width:100%;accent-color:var(--brass)}
+.vgrid output{font-family:var(--mono);font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
+.settings h3{font:600 12px var(--display);letter-spacing:.2em;margin:6px 0 0;color:var(--dim)}
 </style>
 </head>
 <body>
@@ -74,6 +79,19 @@ input[type=text],input[type=password]{flex:1;min-width:0;background:var(--panel)
       <button class="btn ghost" id="clearKey" type="button">Clear</button>
     </div>
     <label><input type="checkbox" id="wakeChk" checked> Require the wake word "Alfred" (turn off to have Alfred answer everything it hears)</label>
+    <h3>VOICE</h3>
+    <div class="vgrid">
+      <label for="voiceSel">Voice</label>
+      <select id="voiceSel" style="grid-column:span 2"></select>
+      <label for="rateIn">Speed</label>
+      <input type="range" id="rateIn" min="0.6" max="1.6" step="0.05">
+      <output id="rateOut"></output>
+      <label for="pitchIn">Pitch</label>
+      <input type="range" id="pitchIn" min="0.5" max="1.5" step="0.05">
+      <output id="pitchOut"></output>
+    </div>
+    <div class="row"><button class="btn ghost" id="testVoice" type="button">Test voice</button></div>
+    <p>The list shows the voices installed on this device, so it differs between iPhone, iPad and computer. On iPhone and iPad you can download nicer voices in Settings → Accessibility → Spoken Content → Voices (the "Enhanced" and "Premium" ones sound best).</p>
   </div>
 
   <div class="core">
@@ -143,7 +161,20 @@ function add(kind,text){
 
 /* speech out */
 let voice=null;
-function pickVoice(){const vs=speechSynthesis.getVoices();voice=vs.find(v=>/en-GB/i.test(v.lang)&&/male|daniel|arthur|george/i.test(v.name))||vs.find(v=>/en-GB/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null;}
+let rate=parseFloat(store.get('alfred_rate'))||1.02, pitch=parseFloat(store.get('alfred_pitch'))||0.9;
+function defaultVoice(vs){return vs.find(v=>/en-GB/i.test(v.lang)&&/male|daniel|arthur|george/i.test(v.name))||vs.find(v=>/en-GB/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||vs[0]||null;}
+function pickVoice(){
+  const vs=speechSynthesis.getVoices();
+  const saved=store.get('alfred_voice');
+  voice=(saved&&vs.find(v=>v.voiceURI===saved))||defaultVoice(vs);
+  fillVoices(vs);
+}
+function fillVoices(vs){
+  const sel=document.getElementById('voiceSel');if(!sel||!vs.length)return;
+  const list=[...vs].sort((a,b)=>{const ea=/^en/i.test(a.lang),eb=/^en/i.test(b.lang);return ea!==eb?(ea?-1:1):a.lang.localeCompare(b.lang)||a.name.localeCompare(b.name);});
+  sel.textContent='';
+  list.forEach(v=>{const o=document.createElement('option');o.value=v.voiceURI;o.textContent=v.name+' ('+v.lang+')';if(voice&&v.voiceURI===voice.voiceURI)o.selected=true;sel.appendChild(o);});
+}
 pickVoice();speechSynthesis.onvoiceschanged=pickVoice;
 /* iPhone/iPad: Safari only allows speech after a tap, so unlock it on the first touch or click */
 let voiceUnlocked=false;
@@ -160,7 +191,7 @@ function speak(text){
   pauseListening();
   speechSynthesis.cancel();
   const u=new SpeechSynthesisUtterance(text.replace(/[*_#`]/g,''));
-  if(voice)u.voice=voice;u.rate=1.02;u.pitch=.9;
+  if(voice)u.voice=voice;u.rate=rate;u.pitch=pitch;
   u.onstart=()=>setMode('speaking');
   u.onend=u.onerror=afterSpeech;
   speechSynthesis.speak(u);
@@ -250,6 +281,14 @@ $('#setBtn').onclick=()=>{const s=$('#settings');s.hidden=!s.hidden;if(!s.hidden
 $('#saveKey').onclick=()=>{apiKey=$('#key').value.trim();store.set('alfred_key',apiKey||null);$('#settings').hidden=true;add('sys',apiKey?'API key saved. Full intelligence online.':'No key set. Running in basic mode.');};
 $('#clearKey').onclick=()=>{apiKey='';$('#key').value='';store.set('alfred_key',null);add('sys','API key cleared. Running in basic mode.');};
 $('#wakeChk').onchange=e=>{useWake=e.target.checked;store.set('alfred_wake',useWake?'1':'0');if(listening)setMode('idle');};
+function showRP(){$('#rateIn').value=rate;$('#pitchIn').value=pitch;$('#rateOut').textContent=rate.toFixed(2)+'×';$('#pitchOut').textContent=pitch.toFixed(2);}
+showRP();
+$('#voiceSel').onchange=e=>{const v=speechSynthesis.getVoices().find(x=>x.voiceURI===e.target.value);if(v){voice=v;store.set('alfred_voice',v.voiceURI);sampleVoice();}};
+$('#rateIn').oninput=e=>{rate=parseFloat(e.target.value);store.set('alfred_rate',String(rate));showRP();};
+$('#pitchIn').oninput=e=>{pitch=parseFloat(e.target.value);store.set('alfred_pitch',String(pitch));showRP();};
+$('#rateIn').onchange=$('#pitchIn').onchange=sampleVoice;
+$('#testVoice').onclick=sampleVoice;
+function sampleVoice(){speak('Good day. This is how I will sound from now on.');}
 
 /* hands-free listening */
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
