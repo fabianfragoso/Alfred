@@ -11,14 +11,14 @@ A personal voice assistant powered by Claude.
 
 ## Using it
 
-1. Open the site in Chrome or Edge (it must be **https** for the microphone).
+1. Open **https://alfred.fwsolutions.ca** in Chrome or Edge (https is required for the microphone).
 2. Open **Settings**, paste your Anthropic API key. It is stored only in that browser.
 3. Press **Start listening** and say "Alfred, what time is it?"
 
 ## Deploying to FastComet (cPanel)
 
 1. cPanel → **Git™ Version Control** → **Create** → clone this repo.
-2. Check the path in `.cpanel.yml` matches where you want Alfred served.
+2. Check the path in `.cpanel.yml` matches the subdomain's Document Root (`alfred.fwsolutions.ca`).
 3. **Manage** → **Pull or Deploy** → **Update from Remote**, then **Deploy HEAD Commit**.
 
 ## Rules

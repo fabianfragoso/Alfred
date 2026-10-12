@@ -1,10 +1,8 @@
 ---
 deployment:
   tasks:
-    # Where Alfred is served from on FastComet.
-    # Default: https://yourdomain.com/alfred/
-    # Using a subdomain instead? Change this to the subdomain's folder,
-    # e.g. $HOME/alfred.yourdomain.com/
-    - export DEPLOYPATH=$HOME/public_html/alfred/
+    # Alfred is served at https://alfred.fwsolutions.ca
+    # This must match the subdomain's Document Root in cPanel → Domains.
+    - export DEPLOYPATH=$HOME/alfred.fwsolutions.ca/
     - mkdir -p $DEPLOYPATH
     - /bin/cp -R public/. $DEPLOYPATH
