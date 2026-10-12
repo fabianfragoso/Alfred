@@ -1,8 +1,6 @@
 ---
 deployment:
   tasks:
-    # Alfred is served at https://alfred.fwsolutions.ca
-    # This must match the subdomain's Document Root in cPanel → Domains.
-    - export DEPLOYPATH=$HOME/alfred.fwsolutions.ca/
-    - mkdir -p $DEPLOYPATH
-    - /bin/cp -R public/. $DEPLOYPATH
+    # Copies Alfred into the alfred.fwsolutions.ca subdomain folder,
+    # whichever of the two standard cPanel locations it lives in.
+    - /bin/bash -c 'for d in "$HOME/alfred.fwsolutions.ca" "$HOME/public_html/alfred.fwsolutions.ca"; do if [ -d "$d" ]; then /bin/cp -R public/. "$d/"; echo "Deployed to $d"; exit 0; fi; done; echo "Subdomain folder not found"; exit 1'
