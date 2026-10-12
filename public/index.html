@@ -234,7 +234,12 @@ async function ask(text){
     busy=false;speak(reply);
   }catch(e){
     history.pop();
-    const msg=e.status===401?'That API key was rejected. Please check it in Settings.':e.status===429?'I am being rate limited. Give me a moment.':'I could not reach my servers. '+localReply(text);
+    const detail=(e.message||'').toLowerCase();
+    const msg=e.status===401?'That API key was rejected. Please check it in Settings.'
+      :/credit|balance|billing/.test(detail)?'My account is out of credit. Please add credit under Billing in the Claude Console.'
+      :e.status===429?'I am being rate limited. Give me a moment.'
+      :e.status?'Error '+e.status+': '+e.message
+      :'I could not reach my servers. Check your internet connection.';
     out.textContent=msg;busy=false;speak(msg);
   }
 }
