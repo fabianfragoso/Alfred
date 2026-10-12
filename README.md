@@ -7,6 +7,8 @@ A personal voice assistant powered by Claude.
 | Path | What it is |
 | --- | --- |
 | `public/index.html` | The web app: hands-free voice ("Alfred, …"), spoken replies, timers |
+| `public/tts.php` | Natural voices relay (ElevenLabs, OpenAI, Azure); keys stay on the server |
+| `alfred-config.sample.php` | Template for `~/alfred-config.php` on the server (never commit the real one) |
 | `.cpanel.yml` | Tells cPanel where to copy the site when you click **Deploy** |
 
 ## Using it
@@ -30,5 +32,6 @@ A personal voice assistant powered by Claude.
 
 - [x] Web app with wake word
 - [x] iPhone Siri Shortcut ("Hey Alfred" via Vocal Shortcuts)
+- [x] Natural voices (ElevenLabs / OpenAI / Azure) via server relay
 - [ ] Email: read, summarize, draft, send after confirmation
 - [ ] Mac mini hub: always-on listening, Wake-on-LAN, smart home

@@ -16,6 +16,7 @@
   color-scheme:dark;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{height:100%;margin:0}
 body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
 .app{height:100%;display:flex;flex-direction:column;max-width:720px;margin:0 auto;padding-inline:16px}
@@ -81,17 +82,29 @@ input[type=text],input[type=password]{flex:1;min-width:0;background:var(--panel)
     <label><input type="checkbox" id="wakeChk" checked> Require the wake word "Alfred" (turn off to have Alfred answer everything it hears)</label>
     <h3>VOICE</h3>
     <div class="vgrid">
+      <label for="provSel">Service</label>
+      <select id="provSel" style="grid-column:span 2">
+        <option value="device">This device's voices (free)</option>
+        <option value="elevenlabs">ElevenLabs (most natural)</option>
+        <option value="openai">OpenAI</option>
+        <option value="azure">Microsoft Azure</option>
+      </select>
       <label for="voiceSel">Voice</label>
       <select id="voiceSel" style="grid-column:span 2"></select>
+      <label for="customVoice" class="cloudOnly">Custom</label>
+      <input type="text" id="customVoice" class="cloudOnly" style="grid-column:span 2;min-width:0;background:var(--ground);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:10px;font:14px var(--body)" placeholder="Optional: paste any voice ID or name">
+      <label for="passIn" class="cloudOnly">Access code</label>
+      <input type="password" id="passIn" class="cloudOnly" style="min-width:0;background:var(--ground);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:10px;font:14px var(--body)" placeholder="From alfred-config.php">
+      <button class="btn ghost cloudOnly" id="passSave" type="button" style="height:40px">Check</button>
       <label for="rateIn">Speed</label>
       <input type="range" id="rateIn" min="0.6" max="1.6" step="0.05">
       <output id="rateOut"></output>
-      <label for="pitchIn">Pitch</label>
-      <input type="range" id="pitchIn" min="0.5" max="1.5" step="0.05">
-      <output id="pitchOut"></output>
+      <label for="pitchIn" class="devOnly">Pitch</label>
+      <input type="range" id="pitchIn" class="devOnly" min="0.5" max="1.5" step="0.05">
+      <output id="pitchOut" class="devOnly"></output>
     </div>
     <div class="row"><button class="btn ghost" id="testVoice" type="button">Test voice</button></div>
-    <p>The list shows the voices installed on this device, so it differs between iPhone, iPad and computer. On iPhone and iPad you can download nicer voices in Settings → Accessibility → Spoken Content → Voices (the "Enhanced" and "Premium" ones sound best).</p>
+    <p id="voiceNote"></p>
   </div>
 
   <div class="core">
@@ -162,6 +175,13 @@ function add(kind,text){
 /* speech out */
 let voice=null;
 let rate=parseFloat(store.get('alfred_rate'))||1.02, pitch=parseFloat(store.get('alfred_pitch'))||0.9;
+const CLOUD_VOICES={
+  elevenlabs:[['JBFqnCBsd6RMkjVDRZzb','George · British, warm'],['onwK4e9ZLuTAKqWW03F9','Daniel · British, composed'],['Xb7hH8MSUJpSbSDYk0k2','Alice · British, female'],['pFZP5JQG7iQjIQuC4Bku','Lily · British, female'],['nPczCjzI2devNBz1zQrb','Brian · American, deep'],['pNInz6obpgDQGcFmaJgB','Adam · American'],['EXAVITQu4vr4xnSDxMaL','Sarah · American, female'],['21m00Tcm4TlvDq8ELmM','Rachel · American, female']],
+  openai:[['fable','Fable · British-leaning'],['onyx','Onyx · deep male'],['ash','Ash · male'],['echo','Echo · male'],['ballad','Ballad · male'],['sage','Sage · calm'],['coral','Coral · female'],['nova','Nova · female'],['shimmer','Shimmer · female'],['alloy','Alloy · neutral']],
+  azure:[['en-GB-RyanNeural','Ryan · British male'],['en-GB-ThomasNeural','Thomas · British male'],['en-GB-AlfieNeural','Alfie · British male'],['en-GB-SoniaNeural','Sonia · British female'],['en-GB-LibbyNeural','Libby · British female'],['en-CA-LiamNeural','Liam · Canadian male'],['en-CA-ClaraNeural','Clara · Canadian female'],['en-US-AndrewNeural','Andrew · American male'],['en-US-GuyNeural','Guy · American male'],['en-US-AvaNeural','Ava · American female']]
+};
+let provider=store.get('alfred_provider')||'device';
+let passcode=store.get('alfred_pass')||'';
 function defaultVoice(vs){return vs.find(v=>/en-GB/i.test(v.lang)&&/male|daniel|arthur|george/i.test(v.name))||vs.find(v=>/en-GB/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||vs[0]||null;}
 function pickVoice(){
   const vs=speechSynthesis.getVoices();
@@ -170,7 +190,14 @@ function pickVoice(){
   fillVoices(vs);
 }
 function fillVoices(vs){
-  const sel=document.getElementById('voiceSel');if(!sel||!vs.length)return;
+  const sel=document.getElementById('voiceSel');if(!sel)return;
+  if(provider!=='device'){
+    sel.textContent='';
+    const cur=store.get('alfred_cv_'+provider)||CLOUD_VOICES[provider][0][0];
+    CLOUD_VOICES[provider].forEach(([id,label])=>{const o=document.createElement('option');o.value=id;o.textContent=label;if(id===cur)o.selected=true;sel.appendChild(o);});
+    return;
+  }
+  if(!vs.length)return;
   const list=[...vs].sort((a,b)=>{const ea=/^en/i.test(a.lang),eb=/^en/i.test(b.lang);return ea!==eb?(ea?-1:1):a.lang.localeCompare(b.lang)||a.name.localeCompare(b.name);});
   sel.textContent='';
   list.forEach(v=>{const o=document.createElement('option');o.value=v.voiceURI;o.textContent=v.name+' ('+v.lang+')';if(voice&&v.voiceURI===voice.voiceURI)o.selected=true;sel.appendChild(o);});
@@ -181,22 +208,53 @@ let voiceUnlocked=false;
 function unlockVoice(){
   if(voiceUnlocked)return;voiceUnlocked=true;
   try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u);}catch(e){}
+  try{audioEl.src=silentWavURL();audioEl.play().catch(()=>{});}catch(e){}
   try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();}catch(e){}
   pickVoice();
 }
 ['touchend','click','keydown'].forEach(ev=>document.addEventListener(ev,unlockVoice,{capture:true,passive:true}));
 function afterSpeech(){setMode(listening?'idle':'off');resumeListening();}
+/* ---- natural voices (via tts.php on the server) ---- */
+
+const cloudVoice=p=>{const c=store.get('alfred_cvc_'+p);return (c&&c.trim())||store.get('alfred_cv_'+p)||CLOUD_VOICES[p][0][0];};
+const audioEl=new Audio();audioEl.preload='auto';audioEl.setAttribute('playsinline','');
+let speechSeq=0,lastTtsError='';
+function stopSpeaking(){speechSeq++;try{window.speechSynthesis.cancel();}catch(e){}try{audioEl.pause();}catch(e){}}
+function silentWavURL(){const n=800,b=new ArrayBuffer(44+n*2),v=new DataView(b);const w=(o,t)=>{for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i));};w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,16000,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);return URL.createObjectURL(new Blob([b],{type:'audio/wav'}));}
+async function speakCloud(text,seq){
+  try{
+    const r=await fetch('tts.php',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({provider,voice:cloudVoice(provider),text,passcode})});
+    if(seq!==speechSeq)return;
+    if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error(j.error||('Voice service error '+r.status));}
+    const blob=await r.blob();if(seq!==speechSeq)return;
+    const url=URL.createObjectURL(blob);
+    audioEl.onplay=()=>setMode('speaking');
+    audioEl.onended=audioEl.onerror=()=>{URL.revokeObjectURL(url);if(seq===speechSeq)afterSpeech();};
+    audioEl.src=url;audioEl.playbackRate=rate;
+    await audioEl.play();
+    lastTtsError='';
+  }catch(e){
+    if(seq!==speechSeq)return;
+    if(e.message!==lastTtsError){lastTtsError=e.message;add('sys','Natural voice unavailable, using the device voice instead. '+e.message);}
+    speakDevice(text);
+  }
+}
 function speak(text){
   if(!voiceOn){afterSpeech();return;}
   pauseListening();
-  speechSynthesis.cancel();
+  stopSpeaking();
+  if(provider!=='device'){speakCloud(text,speechSeq);return;}
+  speakDevice(text);
+}
+function speakDevice(text){
+  window.speechSynthesis.cancel();
   const u=new SpeechSynthesisUtterance(text.replace(/[*_#`]/g,''));
   if(voice)u.voice=voice;u.rate=rate;u.pitch=pitch;
   u.onstart=()=>setMode('speaking');
   u.onend=u.onerror=afterSpeech;
   speechSynthesis.speak(u);
 }
-$('#voiceBtn').onclick=e=>{voiceOn=!voiceOn;e.currentTarget.setAttribute('aria-pressed',voiceOn);e.currentTarget.textContent=voiceOn?'Voice on':'Voice off';if(!voiceOn){speechSynthesis.cancel();afterSpeech();}};
+$('#voiceBtn').onclick=e=>{voiceOn=!voiceOn;e.currentTarget.setAttribute('aria-pressed',voiceOn);e.currentTarget.textContent=voiceOn?'Voice on':'Voice off';if(!voiceOn){stopSpeaking();afterSpeech();}};
 
 /* chime + timers */
 let actx=null;
@@ -242,7 +300,7 @@ function localReply(text){
 async function ask(text){
   text=text.trim();if(!text||busy)return;
   busy=true;add('u',text);q.value='';
-  speechSynthesis.cancel();setMode('thinking');
+  stopSpeaking();setMode('thinking');
   const out=add('j','…');
   if(!apiKey){const r=localReply(text);out.textContent=r;busy=false;speak(r);return;}
   history.push({role:'user',content:text});
@@ -283,7 +341,39 @@ $('#clearKey').onclick=()=>{apiKey='';$('#key').value='';store.set('alfred_key',
 $('#wakeChk').onchange=e=>{useWake=e.target.checked;store.set('alfred_wake',useWake?'1':'0');if(listening)setMode('idle');};
 function showRP(){$('#rateIn').value=rate;$('#pitchIn').value=pitch;$('#rateOut').textContent=rate.toFixed(2)+'×';$('#pitchOut').textContent=pitch.toFixed(2);}
 showRP();
-$('#voiceSel').onchange=e=>{const v=speechSynthesis.getVoices().find(x=>x.voiceURI===e.target.value);if(v){voice=v;store.set('alfred_voice',v.voiceURI);sampleVoice();}};
+$('#voiceSel').onchange=e=>{
+  if(provider!=='device'){store.set('alfred_cv_'+provider,e.target.value);sampleVoice();return;}
+  const v=speechSynthesis.getVoices().find(x=>x.voiceURI===e.target.value);if(v){voice=v;store.set('alfred_voice',v.voiceURI);sampleVoice();}};
+const NOTES={
+  device:'Free voices built into this device, so the list differs between iPhone, iPad and computer. On iPhone and iPad you can download nicer ones in Settings → Accessibility → Spoken Content → Voices.',
+  elevenlabs:'The most natural voices. Needs an ElevenLabs key in alfred-config.php on the server. You can paste any voice ID from your ElevenLabs Voice Library under Custom.',
+  openai:'Natural voices with a refined British delivery. Needs an OpenAI key in alfred-config.php on the server.',
+  azure:'Microsoft neural voices, including Canadian and British accents. Needs an Azure Speech key and region in alfred-config.php on the server.'
+};
+function applyProvider(){
+  $('#provSel').value=provider;
+  const cloud=provider!=='device';
+  document.querySelectorAll('.cloudOnly').forEach(el=>el.hidden=!cloud);
+  document.querySelectorAll('.devOnly').forEach(el=>el.hidden=cloud);
+  $('#customVoice').value=cloud?(store.get('alfred_cvc_'+provider)||''):'';
+  $('#passIn').value=passcode;
+  $('#voiceNote').textContent=NOTES[provider];
+  fillVoices(speechSynthesis.getVoices());
+}
+applyProvider();
+$('#provSel').onchange=e=>{provider=e.target.value;store.set('alfred_provider',provider);lastTtsError='';applyProvider();if(provider==='device'||passcode)sampleVoice();};
+$('#customVoice').onchange=e=>{store.set('alfred_cvc_'+provider,e.target.value.trim()||null);sampleVoice();};
+$('#passSave').onclick=async()=>{
+  passcode=$('#passIn').value.trim();store.set('alfred_pass',passcode||null);
+  try{
+    const r=await fetch('tts.php',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({status:1,passcode})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(j.error||('Error '+r.status));
+    const ready=Object.entries(j.providers).filter(([,v])=>v).map(([k])=>({elevenlabs:'ElevenLabs',openai:'OpenAI',azure:'Azure'})[k]);
+    add('sys',ready.length?'Access code accepted. Ready: '+ready.join(', ')+'.':'Access code accepted, but no voice service keys are in alfred-config.php yet.');
+    if(ready.length)sampleVoice();
+  }catch(e){add('sys',e.message);}
+};
 $('#rateIn').oninput=e=>{rate=parseFloat(e.target.value);store.set('alfred_rate',String(rate));showRP();};
 $('#pitchIn').oninput=e=>{pitch=parseFloat(e.target.value);store.set('alfred_pitch',String(pitch));showRP();};
 $('#rateIn').onchange=$('#pitchIn').onchange=sampleVoice;

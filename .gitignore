@@ -4,3 +4,4 @@
 config.local.*
 secrets/
 .DS_Store
+alfred-config.php
