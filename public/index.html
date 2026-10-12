@@ -145,6 +145,15 @@ function add(kind,text){
 let voice=null;
 function pickVoice(){const vs=speechSynthesis.getVoices();voice=vs.find(v=>/en-GB/i.test(v.lang)&&/male|daniel|arthur|george/i.test(v.name))||vs.find(v=>/en-GB/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null;}
 pickVoice();speechSynthesis.onvoiceschanged=pickVoice;
+/* iPhone/iPad: Safari only allows speech after a tap, so unlock it on the first touch or click */
+let voiceUnlocked=false;
+function unlockVoice(){
+  if(voiceUnlocked)return;voiceUnlocked=true;
+  try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u);}catch(e){}
+  try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();}catch(e){}
+  pickVoice();
+}
+['touchend','click','keydown'].forEach(ev=>document.addEventListener(ev,unlockVoice,{capture:true,passive:true}));
 function afterSpeech(){setMode(listening?'idle':'off');resumeListening();}
 function speak(text){
   if(!voiceOn){afterSpeech();return;}
@@ -160,7 +169,7 @@ $('#voiceBtn').onclick=e=>{voiceOn=!voiceOn;e.currentTarget.setAttribute('aria-p
 
 /* chime + timers */
 let actx=null;
-function chime(){try{actx=actx||new AudioContext();[0,.25,.5].forEach((d,i)=>{const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=[660,880,990][i];g.gain.setValueAtTime(.0001,actx.currentTime+d);g.gain.exponentialRampToValueAtTime(.2,actx.currentTime+d+.02);g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+d+.4);o.connect(g).connect(actx.destination);o.start(actx.currentTime+d);o.stop(actx.currentTime+d+.45);});}catch(e){}}
+function chime(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();[0,.25,.5].forEach((d,i)=>{const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=[660,880,990][i];g.gain.setValueAtTime(.0001,actx.currentTime+d);g.gain.exponentialRampToValueAtTime(.2,actx.currentTime+d+.02);g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+d+.4);o.connect(g).connect(actx.destination);o.start(actx.currentTime+d);o.stop(actx.currentTime+d+.45);});}catch(e){}}
 function fmt(ms){const s=Math.max(0,Math.ceil(ms/1000));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),r=s%60;return(h?h+':'+String(m).padStart(2,'0'):m)+':'+String(r).padStart(2,'0');}
 function renderTimers(){const box=$('#timers');box.textContent='';timers.forEach(tm=>{const d=document.createElement('div');d.className='timer';const s=document.createElement('span');s.textContent=tm.label+' · '+fmt(tm.end-Date.now());const b=document.createElement('button');b.type='button';b.textContent='✕';b.setAttribute('aria-label','Cancel timer');b.onclick=()=>cancelTimer(tm.id);d.append(s,b);box.appendChild(d);});}
 function addTimer(seconds,label){const tm={id:Math.random().toString(36).slice(2,7),label:label||fmt(seconds*1000)+' timer',end:Date.now()+seconds*1000};timers.push(tm);renderTimers();return tm;}
@@ -263,7 +272,7 @@ function toggleListening(){
   if(!SR){add('sys','This browser has no speech recognition. Open this file in Google Chrome or Microsoft Edge on a computer.');return;}
   listening=!listening;
   $('#startBtn').textContent=listening?'Stop listening':'Start listening';
-  if(listening){try{actx=actx||new AudioContext();}catch(e){}setMode('idle');paused=false;startRec();}
+  if(listening){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();}catch(e){}setMode('idle');paused=false;startRec();}
   else{pauseListening();paused=false;setMode('off');}
 }
 $('#startBtn').onclick=toggleListening;
