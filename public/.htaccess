@@ -3,6 +3,9 @@ RewriteEngine On
 RewriteCond %{HTTPS} !=on
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+# Private helper files (names starting with _) are never served
+RewriteRule (^|/)_ - [F,L]
+
 # Never show a file listing
 Options -Indexes
 DirectoryIndex index.html

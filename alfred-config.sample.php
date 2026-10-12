@@ -19,4 +19,9 @@ return [
     // Microsoft Azure Speech — portal.azure.com → Speech service → Keys and Endpoint
     'azure_key' => '',
     'azure_region' => '',   // e.g. canadacentral, eastus
+
+    // Microsoft 365 email — from your app registration in entra.microsoft.com
+    'ms_tenant_id' => '',      // Directory (tenant) ID
+    'ms_client_id' => '',      // Application (client) ID
+    'ms_client_secret' => '',  // Client secret VALUE (not the secret ID)
 ];
