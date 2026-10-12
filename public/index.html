@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Alfred</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+:root{
+  --ground:#0d1117;--panel:#151b24;--line:#263040;--ink:#e6e1d6;--dim:#8a93a3;
+  --brass:#e0a64a;--teal:#5cc8c0;--alert:#e2685a;
+  --display:"Chakra Petch","Segoe UI",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+.app{height:100%;display:flex;flex-direction:column;max-width:720px;margin:0 auto;padding-inline:16px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:14px 4px}
+.brand{font-family:var(--display);font-weight:600;letter-spacing:.32em;font-size:15px}
+.brand small{display:block;font-family:var(--mono);font-weight:400;letter-spacing:.08em;font-size:11px;color:var(--dim)}
+.hbtns{display:flex;gap:8px}
+.toggle{background:none;border:1px solid var(--line);color:var(--dim);border-radius:999px;padding:6px 12px;font:500 12px var(--body);cursor:pointer}
+.toggle[aria-pressed="true"]{color:var(--brass);border-color:var(--brass)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.core{display:flex;flex-direction:column;align-items:center;gap:6px;padding-block:6px 10px}
+#orb{width:170px;height:170px;max-width:100%;cursor:pointer}
+.status{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);text-align:center}
+.status b{color:var(--brass);font-weight:400}
+.hint{font-size:13px;color:var(--dim);text-align:center}
+.hint em{color:var(--ink);font-style:normal;font-weight:500}
+.log{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding-block:8px 16px}
+.msg{max-width:88%;min-width:0;overflow-wrap:anywhere}
+.msg .who{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:2px}
+.msg.j .who{color:var(--brass)}
+.msg.u{align-self:flex-end;text-align:right}
+.msg.u .txt{background:var(--panel);border:1px solid var(--line);border-radius:14px 14px 4px 14px;padding:8px 12px;display:inline-block;text-align:left}
+.msg.j .txt{white-space:pre-wrap}
+.msg.sys .txt{color:var(--dim);font-size:13px}
+.timers{display:flex;flex-wrap:wrap;gap:8px}
+.timer{font-family:var(--mono);font-size:13px;border:1px solid var(--teal);color:var(--teal);border-radius:8px;padding:4px 10px;display:flex;gap:8px;align-items:center;font-variant-numeric:tabular-nums}
+.timer button{background:none;border:0;color:var(--dim);cursor:pointer;padding:0}
+form{display:flex;gap:8px;align-items:center;padding-block:4px 14px}
+input[type=text],input[type=password]{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:12px 14px;font:15px var(--body)}
+.btn{flex:0 0 auto;height:46px;padding:0 16px;border-radius:12px;border:1px solid var(--brass);background:var(--brass);color:#1a1307;font:600 14px var(--body);cursor:pointer}
+.btn.ghost{background:none;color:var(--ink);border-color:var(--line)}
+.settings{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;margin-block:8px}
+.settings h2{font:600 14px var(--display);letter-spacing:.2em;margin:0}
+.settings p{margin:0;font-size:13px;color:var(--dim)}
+.settings .row{display:flex;gap:8px;flex-wrap:wrap}
+.settings label{font-size:13px;display:flex;gap:8px;align-items:center}
+.start{align-self:center;margin-block:6px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">ALFRED<small id="clock">--:--</small></div>
+    <div class="hbtns">
+      <button class="toggle" id="voiceBtn" aria-pressed="true" type="button">Voice on</button>
+      <button class="toggle" id="setBtn" type="button">Settings</button>
+    </div>
+  </header>
+
+  <div class="settings" id="settings" hidden>
+    <h2>SETTINGS</h2>
+    <p>Alfred uses your own Anthropic API key to think. It is saved only in this browser on this computer. Get one at console.anthropic.com (usage is billed to your account). Without a key, Alfred can still tell the time and the date, and set timers.</p>
+    <div class="row">
+      <input type="password" id="key" placeholder="sk-ant-…" aria-label="Anthropic API key">
+      <button class="btn" id="saveKey" type="button">Save</button>
+      <button class="btn ghost" id="clearKey" type="button">Clear</button>
+    </div>
+    <label><input type="checkbox" id="wakeChk" checked> Require the wake word "Alfred" (turn off to have Alfred answer everything it hears)</label>
+  </div>
+
+  <div class="core">
+    <canvas id="orb" width="300" height="300" aria-label="Tap to talk"></canvas>
+    <div class="status" id="status">Status: <b>Offline</b></div>
+    <div class="hint" id="hint">Press <em>Start listening</em>, then say <em>"Alfred, what time is it?"</em></div>
+    <button class="btn start" id="startBtn" type="button">Start listening</button>
+  </div>
+
+  <div class="timers" id="timers"></div>
+  <div class="log" id="log" aria-live="polite"></div>
+
+  <form id="form" autocomplete="off">
+    <input id="q" type="text" placeholder="Or type here…" aria-label="Message">
+    <button class="btn" type="submit">Send</button>
+  </form>
+</div>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const log=$('#log'),statusEl=$('#status b'),q=$('#q');
+const MODEL='claude-haiku-5-5';
+let mode='off',voiceOn=true,busy=false,listening=false,awake=false,awakeTimer=null;
+const history=[],timers=[];
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}};
+let apiKey=store.get('alfred_key')||'';
+let useWake=store.get('alfred_wake')!=='0';
+$('#wakeChk').checked=useWake;
+
+/* clock */
+function tickClock(){const d=new Date();$('#clock').textContent=d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})+' · '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});}
+tickClock();setInterval(tickClock,15000);
+
+/* orb */
+const cv=$('#orb'),cx=cv.getContext('2d');
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const colors={off:'#4a5568',idle:'#e0a64a',awake:'#e2685a',thinking:'#5cc8c0',speaking:'#e0a64a'};
+let t=0;
+function draw(){
+  const W=300,c=W/2;cx.clearRect(0,0,W,W);
+  const col=colors[mode];const speed=mode==='thinking'?2.6:mode==='off'?0.15:mode==='idle'?0.5:1.4;
+  t+=reduce?0:0.016*speed;
+  cx.save();cx.translate(c,c);cx.rotate(t*0.3);
+  for(let i=0;i<60;i++){cx.rotate(Math.PI/30);cx.strokeStyle=i%5?'#263040':col;cx.lineWidth=2;cx.beginPath();cx.moveTo(0,-140);cx.lineTo(0,i%5?-133:-126);cx.stroke();}
+  cx.restore();
+  cx.save();cx.translate(c,c);cx.rotate(-t*0.8);cx.strokeStyle=col;cx.lineWidth=6;cx.globalAlpha=.85;
+  for(let i=0;i<3;i++){cx.beginPath();cx.arc(0,0,108,i*2.094,i*2.094+1.6);cx.stroke();}
+  cx.restore();
+  const amp=mode==='speaking'?14*Math.abs(Math.sin(t*6))+Math.random()*4:mode==='awake'?10*Math.abs(Math.sin(t*4)):4*Math.sin(t*2);
+  const g=cx.createRadialGradient(c,c,10,c,c,80+amp);
+  g.addColorStop(0,col);g.addColorStop(.35,col+'99');g.addColorStop(1,col+'00');
+  cx.fillStyle=g;cx.beginPath();cx.arc(c,c,80+amp,0,Math.PI*2);cx.fill();
+  cx.strokeStyle=col;cx.lineWidth=2;cx.beginPath();cx.arc(c,c,58,0,Math.PI*2);cx.stroke();
+  requestAnimationFrame(draw);
+}
+draw();
+function setMode(m){mode=m;statusEl.textContent={off:'Offline',idle:useWake?'Waiting for "Alfred"':'Listening',awake:'Listening',thinking:'Thinking',speaking:'Speaking'}[m];}
+
+/* transcript */
+function add(kind,text){
+  const el=document.createElement('div');el.className='msg '+kind;
+  if(kind!=='sys'){const w=document.createElement('div');w.className='who';w.textContent=kind==='u'?'You':'Alfred';el.appendChild(w);}
+  const tx=document.createElement('div');tx.className='txt';tx.textContent=text;el.appendChild(tx);
+  log.appendChild(el);log.scrollTop=log.scrollHeight;return tx;
+}
+
+/* speech out */
+let voice=null;
+function pickVoice(){const vs=speechSynthesis.getVoices();voice=vs.find(v=>/en-GB/i.test(v.lang)&&/male|daniel|arthur|george/i.test(v.name))||vs.find(v=>/en-GB/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null;}
+pickVoice();speechSynthesis.onvoiceschanged=pickVoice;
+function afterSpeech(){setMode(listening?'idle':'off');resumeListening();}
+function speak(text){
+  if(!voiceOn){afterSpeech();return;}
+  pauseListening();
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text.replace(/[*_#`]/g,''));
+  if(voice)u.voice=voice;u.rate=1.02;u.pitch=.9;
+  u.onstart=()=>setMode('speaking');
+  u.onend=u.onerror=afterSpeech;
+  speechSynthesis.speak(u);
+}
+$('#voiceBtn').onclick=e=>{voiceOn=!voiceOn;e.currentTarget.setAttribute('aria-pressed',voiceOn);e.currentTarget.textContent=voiceOn?'Voice on':'Voice off';if(!voiceOn){speechSynthesis.cancel();afterSpeech();}};
+
+/* chime + timers */
+let actx=null;
+function chime(){try{actx=actx||new AudioContext();[0,.25,.5].forEach((d,i)=>{const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=[660,880,990][i];g.gain.setValueAtTime(.0001,actx.currentTime+d);g.gain.exponentialRampToValueAtTime(.2,actx.currentTime+d+.02);g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+d+.4);o.connect(g).connect(actx.destination);o.start(actx.currentTime+d);o.stop(actx.currentTime+d+.45);});}catch(e){}}
+function fmt(ms){const s=Math.max(0,Math.ceil(ms/1000));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),r=s%60;return(h?h+':'+String(m).padStart(2,'0'):m)+':'+String(r).padStart(2,'0');}
+function renderTimers(){const box=$('#timers');box.textContent='';timers.forEach(tm=>{const d=document.createElement('div');d.className='timer';const s=document.createElement('span');s.textContent=tm.label+' · '+fmt(tm.end-Date.now());const b=document.createElement('button');b.type='button';b.textContent='✕';b.setAttribute('aria-label','Cancel timer');b.onclick=()=>cancelTimer(tm.id);d.append(s,b);box.appendChild(d);});}
+function addTimer(seconds,label){const tm={id:Math.random().toString(36).slice(2,7),label:label||fmt(seconds*1000)+' timer',end:Date.now()+seconds*1000};timers.push(tm);renderTimers();return tm;}
+function cancelTimer(id){const i=timers.findIndex(x=>x.id===id);if(i>=0){timers.splice(i,1);renderTimers();return true;}return false;}
+setInterval(()=>{const now=Date.now();for(const tm of [...timers]){if(tm.end<=now){cancelTimer(tm.id);chime();const msg='Your '+tm.label+' is done.';add('j',msg);speak(msg);}}if(timers.length)renderTimers();},500);
+
+/* tools */
+const toolImpl={
+  get_datetime:()=>{const d=new Date();return{local:d.toLocaleString(),timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone};},
+  set_timer:({seconds,label})=>{if(!(seconds>0&&seconds<=86400))throw new Error('seconds must be 1-86400');const tm=addTimer(seconds,label);return{started:true,id:tm.id,label:tm.label};},
+  list_timers:()=>timers.map(t=>({id:t.id,label:t.label,remaining:fmt(t.end-Date.now())})),
+  cancel_timer:({id})=>({cancelled:cancelTimer(id)})
+};
+const toolDefs=[
+  {name:'get_datetime',description:'Get the current local date, time and time zone.',input_schema:{type:'object',properties:{}}},
+  {name:'set_timer',description:'Start a countdown timer that chimes and announces when done.',input_schema:{type:'object',properties:{seconds:{type:'number'},label:{type:'string'}},required:['seconds']}},
+  {name:'list_timers',description:'List running timers.',input_schema:{type:'object',properties:{}}},
+  {name:'cancel_timer',description:'Cancel a timer by id.',input_schema:{type:'object',properties:{id:{type:'string'}},required:['id']}}
+];
+const SYSTEM='You are Alfred, a refined, witty, highly capable personal voice assistant with a dry British wit. You call the user "sir" now and then, not every line. Everything you say is spoken aloud, so keep replies short (usually 1-3 sentences), with no markdown, lists or emoji unless asked. Use the tools for time, date and timers. You cannot browse the web, read email or control devices; say so briefly if asked and offer what you can do.';
+
+async function callClaude(messages){
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:MODEL,max_tokens:600,system:SYSTEM,tools:toolDefs,messages})});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok){const e=new Error(j?.error?.message||('HTTP '+r.status));e.status=r.status;throw e;}
+  return j;
+}
+
+/* local fallback */
+function localReply(text){
+  const s=text.toLowerCase();
+  if(/\btime\b/.test(s))return'It is '+new Date().toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})+'.';
+  if(/\b(date|today|what day)\b/.test(s))return'Today is '+new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})+'.';
+  const m=s.match(/(\d+)\s*(second|minute|hour)/);
+  if(/timer/.test(s)&&m){const n=+m[1];addTimer(n*({second:1,minute:60,hour:3600})[m[2]]);return'Timer set for '+n+' '+m[2]+(n>1?'s':'')+'.';}
+  return'I need an API key in Settings for that. For now I can tell you the time, the date, or set a timer.';
+}
+
+async function ask(text){
+  text=text.trim();if(!text||busy)return;
+  busy=true;add('u',text);q.value='';
+  speechSynthesis.cancel();setMode('thinking');
+  const out=add('j','…');
+  if(!apiKey){const r=localReply(text);out.textContent=r;busy=false;speak(r);return;}
+  history.push({role:'user',content:text});
+  const convo=history.slice(-16);
+  // keep the slice starting on a user turn with a plain string
+  while(convo.length&&(convo[0].role!=='user'||typeof convo[0].content!=='string'))convo.shift();
+  try{
+    let reply='';
+    for(let step=0;step<5;step++){
+      const res=await callClaude(convo);
+      convo.push({role:'assistant',content:res.content});
+      const uses=res.content.filter(b=>b.type==='tool_use');
+      reply=res.content.filter(b=>b.type==='text').map(b=>b.text).join(' ').trim();
+      if(res.stop_reason!=='tool_use'||!uses.length)break;
+      const results=uses.map(u=>{try{return{type:'tool_result',tool_use_id:u.id,content:JSON.stringify(toolImpl[u.name](u.input||{}))};}catch(e){return{type:'tool_result',tool_use_id:u.id,content:e.message,is_error:true};}});
+      convo.push({role:'user',content:results});
+    }
+    reply=reply||'Done.';
+    out.textContent=reply;history.push({role:'assistant',content:reply});
+    busy=false;speak(reply);
+  }catch(e){
+    history.pop();
+    const msg=e.status===401?'That API key was rejected. Please check it in Settings.':e.status===429?'I am being rate limited. Give me a moment.':'I could not reach my servers. '+localReply(text);
+    out.textContent=msg;busy=false;speak(msg);
+  }
+}
+$('#form').addEventListener('submit',e=>{e.preventDefault();ask(q.value);});
+
+/* settings */
+$('#setBtn').onclick=()=>{const s=$('#settings');s.hidden=!s.hidden;if(!s.hidden)$('#key').value=apiKey;};
+$('#saveKey').onclick=()=>{apiKey=$('#key').value.trim();store.set('alfred_key',apiKey||null);$('#settings').hidden=true;add('sys',apiKey?'API key saved. Full intelligence online.':'No key set. Running in basic mode.');};
+$('#clearKey').onclick=()=>{apiKey='';$('#key').value='';store.set('alfred_key',null);add('sys','API key cleared. Running in basic mode.');};
+$('#wakeChk').onchange=e=>{useWake=e.target.checked;store.set('alfred_wake',useWake?'1':'0');if(listening)setMode('idle');};
+
+/* hands-free listening */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=null,paused=false;
+const WAKE=/\b(hey\s+)?(alfred|alfredo|al fred|elfred|alford)\b[,.!?]?\s*/i;
+function goAwake(){awake=true;setMode('awake');clearTimeout(awakeTimer);awakeTimer=setTimeout(()=>{awake=false;if(mode==='awake')setMode('idle');},8000);}
+function handleUtterance(text){
+  text=text.trim();if(!text)return;
+  if(!useWake){ask(text);return;}
+  const m=text.match(WAKE);
+  if(m){const cmd=text.slice(m.index+m[0].length).trim();if(cmd.length>1){awake=false;clearTimeout(awakeTimer);ask(cmd);}else{goAwake();chime();}return;}
+  if(awake){awake=false;clearTimeout(awakeTimer);ask(text);}
+}
+function startRec(){
+  if(!SR||rec||paused||!listening)return;
+  rec=new SR();rec.continuous=true;rec.interimResults=true;rec.lang=navigator.language||'en-US';
+  rec.onresult=ev=>{for(let i=ev.resultIndex;i<ev.results.length;i++){const r=ev.results[i];if(r.isFinal)handleUtterance(r[0].transcript);else if(!busy&&mode!=='speaking')q.placeholder='Heard: '+r[0].transcript;}};
+  rec.onerror=ev=>{if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){listening=false;$('#startBtn').textContent='Start listening';setMode('off');add('sys','Microphone access was blocked. Allow the microphone for this page in Chrome (the icon in the address bar), then press Start listening again.');}};
+  rec.onend=()=>{rec=null;q.placeholder='Or type here…';if(listening&&!paused)setTimeout(startRec,250);};
+  try{rec.start();}catch(e){rec=null;}
+}
+function pauseListening(){paused=true;if(rec){try{rec.abort();}catch(e){}rec=null;}}
+function resumeListening(){paused=false;if(listening&&!busy)startRec();}
+function toggleListening(){
+  if(!SR){add('sys','This browser has no speech recognition. Open this file in Google Chrome or Microsoft Edge on a computer.');return;}
+  listening=!listening;
+  $('#startBtn').textContent=listening?'Stop listening':'Start listening';
+  if(listening){try{actx=actx||new AudioContext();}catch(e){}setMode('idle');paused=false;startRec();}
+  else{pauseListening();paused=false;setMode('off');}
+}
+$('#startBtn').onclick=toggleListening;
+cv.onclick=()=>{if(!listening)toggleListening();else{goAwake();}};
+
+/* boot */
+const h=new Date().getHours();
+add('j',(h<12?'Good morning':h<18?'Good afternoon':'Good evening')+'. Press Start listening and say my name whenever you need me.');
+if(!apiKey)add('sys','Tip: add your Anthropic API key in Settings so Alfred can answer anything. Without it, he handles time, date and timers.');
+if(!SR)add('sys','Voice input needs Google Chrome or Microsoft Edge on a computer.');
+})();
+</script>
+</body>
+</html>
